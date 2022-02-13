@@ -15,7 +15,7 @@ BMP085::BMP085()
 
 void BMP085::getCalData()
 {
-	//
+	// collect all calibration data stored on BMP085 EEPROM
 }
 
 float BMP085::readTemperature()
