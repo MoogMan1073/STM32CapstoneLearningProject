@@ -25,7 +25,7 @@ uint16_t BMP085::Read16BitValue(uint8_t high_reg, uint8_t low_reg)
 	// Tell MPU6050 that we want to read from the temperature register
 	_buf[0] = high_reg;
 	_buf[1] = low_reg;
-	_ret = HAL_I2C_Master_Transmit(_hi2c, BMP085_8BIT_ADDRES, _buf, 1, BMP085_MAX_TIMEOUT);
+	_ret = HAL_I2C_Master_Transmit(_hi2c, BMP085_8BIT_ADDRESS, _buf, 1, BMP085_MAX_TIMEOUT);
 	if ( _ret != HAL_OK )
 	{
 	  strcpy((char*)_buf, "Error Tx\r\n");
@@ -34,7 +34,7 @@ uint16_t BMP085::Read16BitValue(uint8_t high_reg, uint8_t low_reg)
 	else
 	{
 		// Read 2 bytes from the temperature register
-		_ret = HAL_I2C_Master_Receive(_hi2c, BMP085_8BIT_ADDRES, _buf, 2, BMP085_MAX_TIMEOUT);
+		_ret = HAL_I2C_Master_Receive(_hi2c, BMP085_8BIT_ADDRESS, _buf, 2, BMP085_MAX_TIMEOUT);
 		if (_ret != HAL_OK )
 		{
 			strcpy((char*)_buf, "Error Rx\r\n");
@@ -70,17 +70,107 @@ void BMP085::getCalData()
 
 void BMP085::Init()
 {
-
+	getCalData();
 }
 
 float BMP085::readTemperature()
 {
+	float temperature = 0;
+	uint16_t raw_temp;
+	// Taking var names directly from data sheet
+	uint16_t X1;
+	uint16_t X2;
+	uint16_t T;
+
 	// Write 0x2E into reg 0xF4
+	_buf[0] = BMP085_READ_TEMP_CMD;
+	_buf[1] = BMP085_RA_REQ_DATA;
+
+	_ret = HAL_I2C_Master_Transmit(_hi2c, BMP085_8BIT_ADDRESS, _buf, 2, HAL_MAX_DELAY);
+	if ( _ret != HAL_OK )
+	{
+	  strcpy((char*)_buf, "Error Tx\r\n");
+	  return BMP085_ERROR_CODE;
+	}
+
 	// Wait at least 4.5 ms
-	// Read reg 0xF6 (MSB) and reg 0xF7 (LSB)
-	// Combine registers
+	HAL_Delay(BMP085_TEMP_READ_WAIT_TIME_MS);
+	// Read reg 0xF6 (MSB) and reg 0xF7 (LSB) + Combine registers
+	raw_temp = Read16BitValue(BMP085_RA_DATA_H, BMP085_RA_DATA_L);
+
 	// Calculate True Temperature
+	X1 = (raw_temp - _ac6) * (_ac5 / (1<<15));
+	X2 = (_mc * (1 << 11)) / (X1 + _md);
+	_b5 = X1 + X2;
+	T = (_b5 + 8) / (1 << 4); // yields temperature in increments of 0.1 deg C.
+	temperature = ((float)T) / 10.0;
 	// Convert to deg F
+	temperature = (temperature * BMP085_CEL_TO_FAR_CONVERSION);
+
 	// Return True Temp val
+	return temperature;
+}
+
+float BMP085::readPressure()
+{
+	float pressure = 0;
+	int pressure_Pa;
+	uint16_t raw_pressure;
+	uint16_t B3;
+	uint16_t B4;
+	uint16_t B6;
+	uint16_t B7;
+	uint16_t X1;
+	uint16_t X2;
+	uint16_t X3 = 0;
+
+	// Write 0x34 into reg 0xF4
+	_buf[0] = BMP085_READ_TEMP_CMD;
+	_buf[1] = BMP085_RA_REQ_DATA;
+
+	_ret = HAL_I2C_Master_Transmit(_hi2c, BMP085_8BIT_ADDRESS, _buf, 2, HAL_MAX_DELAY);
+	if ( _ret != HAL_OK )
+	{
+	  strcpy((char*)_buf, "Error Tx\r\n");
+	  return BMP085_ERROR_CODE;
+	}
+
+	// wait at least 4.5 ms (only when not using any oversampling)
+	HAL_Delay(BMP085_TEMP_READ_WAIT_TIME_MS);
+
+	// read 0xF6 and 0xF7
+	// NOTE: if we were to use oversampling, 0xF8 would also need to be considered.
+	// I'm not too worried about getting more fidelity, a 16-bit value for pressure
+	// will do just fine.
+	// Check BMP085 datasheet pg. 13 for oversampling implementation if ever needed.
+	raw_pressure = Read16BitValue(BMP085_RA_DATA_H, BMP085_RA_DATA_L);
+
+	// Calculation taken from datasheet
+	B6 = _b5 - 4000;
+	X1 = (_b2 * (B6 * B6/(1 << 12))) / (1<< 11);
+	X2 = _ac2 * B6/(1 << 11);
+	X3 = X1 + X3;
+	B3 = ((_ac1*4+X3) << 2) / 4;
+	X1 = _ac3 * B6 / (1 << 13);
+	X2 = (_b1 * (B6 * B6/(1 << 12))) / (1 << 16);
+	X3 = ((X1 + X2) + 2) / (1 << 2);
+	B4 = _ac4 * (unsigned long)(X3 + 32768) / (1 << 15);
+	B7 = ((unsigned long) raw_pressure - B3) * (50000);
+	if(B7 < 0x80000000)
+	{
+		pressure_Pa = (B7 * 2) / B4;
+	}
+	else
+	{
+		pressure_Pa = (B7/B4) * 2;
+	}
+	X1 = (pressure_Pa / (1 << 8)) * (pressure_Pa / (1 << 8));
+	X1 = (X1 * 3038) / (1 << 16);
+	X2 = (-7357 * pressure_Pa) / (1 << 16);
+	pressure_Pa = pressure_Pa + (X1 + X2 + 3791) / (1 << 4);
+
+	pressure = pressure_Pa * 0.01;
+
+	return pressure;
 }
 

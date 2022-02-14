@@ -419,7 +419,7 @@ class MPU6050 {
 public:
 	MPU6050(I2C_HandleTypeDef* hi2c);
 	uint16_t Convert2sComplement(uint16_t val);
-	uint16_t Read16BitValue(uint8_t low_reg, uint8_t high_reg);
+	uint16_t Read16BitValue(uint8_t high_reg, uint8_t low_reg);
 	float getAccelinUnits(uint16_t raw_val);
 	float getGyroinUnits(uint16_t raw_val);
 	void Init();

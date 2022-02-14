@@ -15,7 +15,7 @@
 #define SRC_BMP085_H_
 
 #define BMP085_DEFAULT_ADDRESS 0x77
-#define BMP085_8BIT_ADDRES BMP085_DEFAULT_ADDRESS << 1
+#define BMP085_8BIT_ADDRESS BMP085_DEFAULT_ADDRESS << 1
 #define BMP085_RA_AC1_H 0xAA
 #define BMP085_RA_AC1_L 0xAB
 #define BMP085_RA_AC2_H 0xAC
@@ -38,21 +38,31 @@
 #define BMP085_RA_MC_L 0xBD
 #define BMP085_RA_MD_H 0xBE
 #define BMP085_RA_MD_L 0xBF
+#define BMP085_RA_REQ_DATA 0xF4 // use for both temperature and pressure readings
+#define BMP085_RA_DATA_H 0xF6 // Returns either temperature or pressure data based on whats
+#define BMP085_RA_DATA_L 0xF7	// Written to the Request Data register
+
+
+#define BMP085_READ_TEMP_CMD 0x2E
+#define BMP085_READ_PRESS_CMD 0x34
+
+#define BMP085_CEL_TO_FAR_CONVERSION (9.0/5.0) + 32.0
 
 #define BMP085_BUFFER_SIZE 32
 #define BMP085_HIGH_REGISTER_OFFSET 8
 #define BMP085_MAX_TIMEOUT 5000
 #define BMP085_ERROR_CODE 0xFFFF
 
-#define TEMP_READ_WAIT_TIME_MS 10 // Datasheet states to wait at least 4.5 ms
+#define BMP085_TEMP_READ_WAIT_TIME_MS 10 // Datasheet states to wait at least 4.5 ms
 
 class BMP085 {
 public:
 	BMP085(I2C_HandleTypeDef* hi2c);
-	uint16_t Read16BitValue(uint8_t low_reg, uint8_t high_reg);
+	uint16_t Read16BitValue(uint8_t high_reg, uint8_t low_reg);
 	void getCalData();
 	void Init();
 	float readTemperature();
+	float readPressure();
 
 private:
 	uint8_t _buf[BMP085_BUFFER_SIZE] = {};
@@ -69,6 +79,7 @@ private:
 	uint16_t _ac6;
 	uint16_t _b1;
 	uint16_t _b2;
+	uint16_t _b5;
 	uint16_t _mb;
 	uint16_t _mc;
 	uint16_t _md;
