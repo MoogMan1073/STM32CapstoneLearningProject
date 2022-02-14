@@ -19,7 +19,7 @@ MPU6050::MPU6050(I2C_HandleTypeDef* hi2c) {
 }
 
 /**
- * @brief Initialization function for the MOU6050 device. The device must first be reset by
+ * @brief Initialization function for the MPU6050 device. The device must first be reset by
  * sending a 0x00 value to the power management 1 register. From there, any desired configuration
  * for the sensors on the MPU6050 can be applied.
  */

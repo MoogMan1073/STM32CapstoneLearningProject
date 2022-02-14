@@ -7,6 +7,12 @@
 
 #include "BMP085.h"
 
+/**
+ * @brief	Constructor for the BMP085 temperautre & pressure sensor.
+ * Note this constructor assumes i2c communication has already been configured
+ * before the device is initialized.
+ * @param hi2c	i2c line used to communicate with the BMP085.
+ */
 BMP085::BMP085(I2C_HandleTypeDef* hi2c)
 {
 	_hi2c = hi2c;
@@ -51,7 +57,11 @@ uint16_t BMP085::Read16BitValue(uint8_t high_reg, uint8_t low_reg)
 		return _val;
 }
 
-
+/**
+ * @brief Before reading any sensor data. It is required to pull calibration data
+ * from various registers stored on an EEPROM on the BMP085 device. This function
+ * assigns all EEPROM calibration data to private variables in the BMP085 class.
+ */
 void BMP085::getCalData()
 {
 	// collect all calibration data stored on BMP085 EEPROM
@@ -68,11 +78,20 @@ void BMP085::getCalData()
 	 _md = Read16BitValue(BMP085_RA_MD_H, BMP085_RA_MD_L);
 }
 
+/**
+ * @brief Initialization function for the BMP085 device. The only thing we do here
+ * is pull in all of the calibration data stored on the BMP085.
+ */
 void BMP085::Init()
 {
 	getCalData();
 }
 
+/**
+ * @brief Read the temperature data from the BMP085 and then convert it into
+ * degree Fahrenheit.
+ * @return Temperature read from the BMP085 in degress Fahrenheit.
+ */
 float BMP085::readTemperature()
 {
 	float temperature = 0;
@@ -98,7 +117,7 @@ float BMP085::readTemperature()
 	// Read reg 0xF6 (MSB) and reg 0xF7 (LSB) + Combine registers
 	raw_temp = Read16BitValue(BMP085_RA_DATA_H, BMP085_RA_DATA_L);
 
-	// Calculate True Temperature
+	// Calculate True Temperature, method taken from datasheet.
 	X1 = (raw_temp - _ac6) * (_ac5 / (1<<15));
 	X2 = (_mc * (1 << 11)) / (X1 + _md);
 	_b5 = X1 + X2;
@@ -111,6 +130,10 @@ float BMP085::readTemperature()
 	return temperature;
 }
 
+/**
+ * @brief Read the pressure data from the BMP085 and then convert it into hPa.
+ * @return Pressure read from the BMP085 in hPa
+ */
 float BMP085::readPressure()
 {
 	float pressure = 0;

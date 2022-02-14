@@ -56,6 +56,7 @@ LED gLED(GPIOA, 8, GPIO_PIN_8);
 LED rLED(GPIOC, 9, GPIO_PIN_9);
 
 MPU6050 MPU(&hi2c1);
+BMP085 BMP(&hi2c1);
 
 // Buffer used to transmit information to UART
 uint8_t buf[32];
@@ -70,6 +71,9 @@ float gyro_y = 0;
 float gyro_z = 0;
 
 float temp_f;
+
+float temp2_f;
+float pressure;
 
 // Function Prototypes
 void SystemClock_Config(void);
@@ -87,6 +91,42 @@ void DisplayXYZ(void)
 	LCD.SendString((char*)"Y: ");
 	LCD.SetCursor(1, 0);
 	LCD.SendString((char*)"Z: ");
+}
+
+/**
+ * @brief Display the Temperature and Pressure labels on LCD Screen.
+ */
+void DisplayTempAndPressure()
+{
+	LCD.SetCursor(0, 0);
+	LCD.SendString((char*)"Temp: ");
+	LCD.SetCursor(1, 0);
+	LCD.SendString((char*)"Press: ");
+}
+
+/**
+ * @brief Display the Temperature and Pressure data from the BMP085
+ * on the LCD Screen.
+ */
+void DisplayTempAndPressureData()
+{
+	LCD.SetCursor(0, 6);
+	LCD.SendFloat(temp2_f, FLOAT_VAL_LENGTH);
+	LCD.SetCursor(1, 7);
+	LCD.SendFloat(pressure, FLOAT_VAL_LENGTH);
+}
+
+/**
+ * @brief Get temperature and pressure data from the
+ * BMP085 device.
+ */
+void getBMP085SensorData()
+{
+	// Note that values computed in temp reading
+	// Are used to compute pressure.
+	// So, temperature needs to be called first.
+	temp2_f = BMP.readTemperature();
+	pressure = BMP.readPressure();
 }
 
 /**
@@ -184,7 +224,7 @@ void ConvertFloatDataForSerialComm(float datapoint, char *serial_message)
  */
 void SerialDataDump()
 {
-	SendSerialMessageln((char*)"-- Sensor Data --");
+	SendSerialMessageln((char*)"-- MPU6050 Sensor Data --");
 	SendSerialMessage((char*)"Temperature: ");
 	ConvertFloatDataForSerialComm(temp_f, (char*)"F");
 
@@ -201,9 +241,18 @@ void SerialDataDump()
 	ConvertFloatDataForSerialComm(gyro_y, (char*)"deg/s");
 	SendSerialMessage((char*)"Gyro Z: ");
 	ConvertFloatDataForSerialComm(gyro_z, (char*)"deg/s");
+
 	SendSerialMessageln((char*)"-------------");
 	SendSerialMessageln((char*)" ");
 
+	SendSerialMessageln((char*)"-- BMP085 Sensor Data --");
+	SendSerialMessage((char*)"Temperature: ");
+	ConvertFloatDataForSerialComm(temp2_f, (char*)"F");
+	SendSerialMessage((char*)"Pressure: ");
+	ConvertFloatDataForSerialComm(pressure, (char*)"hPa");
+
+	SendSerialMessageln((char*)"-------------");
+	SendSerialMessageln((char*)" ");
 }
 
 /**
@@ -243,6 +292,7 @@ int main(void)
   gLED.Init();
   rLED.Init();
   MPU.Init();
+  BMP.Init();
   LCD.Init();
 
   // Place X: Y: and Z: on the LCD ahead of getting data
@@ -251,6 +301,7 @@ int main(void)
 	while (1)
 	{
 		getMPU6050SensorData();
+		getBMP085SensorData();
 		DisplayGyroData();
 		UpdateTemperatureIndicatorLEDs();
 		SerialDataDump();
